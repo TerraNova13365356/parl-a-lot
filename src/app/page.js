@@ -10,11 +10,11 @@ export default function Home() {
     
     <div>
        
-        {/* <Home_Page/> */}
-        <SlotBooking/>
+        <Home_Page/>
+        {/* <SlotBooking/> */}
         {/* <ParkingPrediction/> */}
         {/* <SelectLocation/> */}
-        <Create_parking/>
+        {/* <Create_parking/> */}
     </div>
   );
 }
