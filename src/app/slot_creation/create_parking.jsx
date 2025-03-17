@@ -1,5 +1,6 @@
 "use client";
-import { ref, set ,db} from "firebase/database";
+import { ref, set } from "firebase/database";
+import { db } from "../../firebase/firebaseConfig";  
 import React, { useState, useEffect } from "react";
 
 const cellTypes = {
@@ -22,8 +23,6 @@ function CreateParkingLayout() {
   );
   const [isDragging, setIsDragging] = useState(false);
   const [selectedType, setSelectedType] = useState("P");
-  const [history, setHistory] = useState([]);
-  const [redoStack, setRedoStack] = useState([]);
 
   useEffect(() => {
     assignSlotLabels();
@@ -41,13 +40,9 @@ function CreateParkingLayout() {
     }
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  const handleMouseUp = () => setIsDragging(false);
 
   const updateCell = (rowIndex, colIndex) => {
-    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(grid))]);
-    setRedoStack([]);
     setGrid((prevGrid) =>
       prevGrid.map((row, rIdx) =>
         rIdx === rowIndex
@@ -62,7 +57,7 @@ function CreateParkingLayout() {
     let currentLabel = "A";
     let visited = new Set();
 
-    const newLabels = grid.map((row, rIdx) => row.map(() => ""));
+    const newLabels = grid.map((row) => row.map(() => ""));
 
     for (let r = 0; r < numRows; r++) {
       for (let c = 0; c < numCols; c++) {
@@ -89,57 +84,23 @@ function CreateParkingLayout() {
     floodFill(r, c - 1, label, count, newLabels, visited);
   };
 
-  const handleUndo = () => {
-    if (history.length > 0) {
-      setRedoStack((prev) => [...prev, JSON.parse(JSON.stringify(grid))]);
-      setGrid(history[history.length - 1]);
-      setHistory((prev) => prev.slice(0, -1));
-    }
-  };
-
-  const handleRedo = () => {
-    if (redoStack.length > 0) {
-      setHistory((prev) => [...prev, JSON.parse(JSON.stringify(grid))]);
-      setGrid(redoStack[redoStack.length - 1]);
-      setRedoStack((prev) => prev.slice(0, -1));
-    }
-  };
-
-  const handleDownloadLayout = () => {
-    let minRow = numRows, maxRow = 0, minCol = numCols, maxCol = 0;
-
-    grid.forEach((row, rIdx) => {
-      row.forEach((cell, cIdx) => {
-        if (cell === "B") {
-          minRow = Math.min(minRow, rIdx);
-          maxRow = Math.max(maxRow, rIdx);
-          minCol = Math.min(minCol, cIdx);
-          maxCol = Math.max(maxCol, cIdx);
-        }
-      });
-    });
-
-    const trimmedGrid = grid.slice(minRow, maxRow + 1).map(row => row.slice(minCol, maxCol + 1));
-    const trimmedLabels = slotLabels.slice(minRow, maxRow + 1).map(row => row.slice(minCol, maxCol + 1));
-
+  const handleSaveLayout = () => {
     const layoutData = {
-      numRows: maxRow - minRow + 1,
-      numCols: maxCol - minCol + 1,
-      grid: trimmedGrid,
-      slotLabels: trimmedLabels,
+      parkingLayout: {
+        numRows,
+        numCols,
+        grid,
+        slotLabels,
+      },
     };
 
-    const layoutJSON = JSON.stringify(layoutData);
-    const parkingRef = ref(db, "parkingLayout");
-    set(parkingRef,  grid,layoutJSON)
+    set(ref(db, "parkingLayout"), layoutData)
       .then(() => alert("Parking layout saved!"))
       .catch((error) => console.error("Error saving layout:", error));
   };
 
-
   return (
     <div className="flex flex-col items-center p-5 overflow-x-auto" onMouseUp={handleMouseUp}>
-      {/* Toolbar */}
       <div className="flex gap-3 mb-4 p-3 border bg-white shadow-md rounded">
         {Object.entries(cellTypes).map(([key, { label, color }]) => (
           <button
@@ -150,15 +111,8 @@ function CreateParkingLayout() {
             {label}
           </button>
         ))}
-        <button className="px-4 py-2 bg-yellow-500 text-white rounded" onClick={handleUndo}>
-          Undo
-        </button>
-        <button className="px-4 py-2 bg-yellow-700 text-white rounded" onClick={handleRedo}>
-          Redo
-        </button>
       </div>
 
-      {/* Scrollable Grid */}
       <div className="overflow-auto border shadow-lg" style={{ maxWidth: "90vw", maxHeight: "80vh" }}>
         <div className="grid" style={{ gridTemplateColumns: `repeat(${numCols}, 20px)` }}>
           {grid.map((row, rowIndex) =>
@@ -176,12 +130,9 @@ function CreateParkingLayout() {
         </div>
       </div>
 
-      {/* Download Layout Button */}
-      <div className="mt-4">
-        <button className="ml-4 px-4 py-2 bg-green-600 text-white rounded" onClick={handleDownloadLayout}>
-          Download Layout
-        </button>
-      </div>
+      <button className="mt-4 px-4 py-2 bg-green-600 text-white rounded" onClick={handleSaveLayout}>
+        Save Layout
+      </button>
     </div>
   );
 }
